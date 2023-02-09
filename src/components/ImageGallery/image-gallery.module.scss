@@ -1,0 +1,14 @@
+.imageGallery {
+  display: grid;
+  max-width: calc(100vw - 30px);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  justify-content: center;
+  grid-gap: 15px;
+
+  list-style: none;
+
+  padding: 100px 15px 20px 0px;
+  margin: 0 auto;
+
+  text-align: center;
+}
