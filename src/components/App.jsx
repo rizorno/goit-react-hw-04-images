@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 
 import Searchbar from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -10,46 +10,36 @@ import { getImages } from '../services/imageAPI';
 import { FETCH_STATUS } from 'constants/fetchStatus';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
-export class App extends Component {
-  state = {
-    imageName: '',
-    imageList: [],
-    currentPage: 1,
-    currentHits: null,
-    totalHits: null,
-    status: FETCH_STATUS.start,
-    isOpenModal: false,
-    modalImg: '',
-    alt: '',
-  };
+export const App = () => {
+  const [imageName, setImageName] = useState('');
+  const [imageList, setImageList] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentHits, setCurrentHits] = useState(null);
+  const [totalHits, setTotalHits] = useState(null);
+  const [status, setStatus] = useState(FETCH_STATUS.start);
+  const [isOpenModal, setIsOpenModal] = useState(false);
+  const [modalImg, setModalImg] = useState('');
+  const [alt, setAlt] = useState('');
 
-  async componentDidUpdate(_, prevState) {
-    const prevName = prevState.imageName;
-    const nextName = this.state.imageName;
-    const prevPage = prevState.currentPage;
-    const nextPage = this.state.currentPage;
-
-    if (prevName !== nextName || prevPage !== nextPage) {
-      this.setState({ status: FETCH_STATUS.loading });
-
+  useEffect(() => {
+    // eslint-disable-next-line no-unused-vars
+    const fetchImages = async () => {
       try {
         const response = await getImages({
-          q: nextName,
-          page: nextPage,
+          q: imageName,
+          page: currentPage,
         });
 
         if (response.totalHits > 0) {
-          if (nextPage === 1) {
+          if (currentPage === 1) {
             Notify.success(`Hooray! We found ${response.totalHits} images.`);
           }
-          this.setState(prevState => ({
-            imageList: [...prevState.imageList, ...response.hits],
-            currentHits: prevState.imageList.length + response.hits.length,
-            totalHits: response.totalHits,
-          }));
+          setImageList(prev => [...prev, ...response.hits]);
+          setCurrentHits(prev => prev + response.hits.length);
+          setTotalHits(response.totalHits);
 
           if (response.totalHits > 12) {
-            this.setState({ status: FETCH_STATUS.fullfilled });
+            setStatus(FETCH_STATUS.fullfilled);
           }
         }
         if (response.totalHits === 0) {
@@ -59,70 +49,65 @@ export class App extends Component {
         }
       } catch (error) {
         console.log(error);
-        this.setState({ status: FETCH_STATUS.rejected });
+        setStatus(FETCH_STATUS.rejected);
       }
+    };
+
+    if (imageName !== '' || currentHits !== totalHits) {
+      setStatus(FETCH_STATUS.loading);
+      // eslint-disable-next-line no-undef
+      fetchImages();
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageName, currentPage]);
 
-  handleFormSubmit = imageName => {
-    this.setState({ imageName, imageList: [], currentPage: 1 });
+  const handleFormSubmit = imageName => {
+    setImageName(imageName);
+    setImageList([]);
+    setCurrentPage(1);
+    setCurrentHits(null);
   };
 
-  handleLoadMore = () => {
-    this.setState(prevState => ({
-      currentPage: prevState.currentPage + 1,
-    }));
+  const handleLoadMore = () => {
+    setCurrentPage(prev => prev + 1);
   };
 
-  handleOpenModal = e => {
+  const handleOpenModal = e => {
     const { name, alt } = e.target;
     if ((name, alt)) {
-      this.setState({ isOpenModal: true, modalImg: name, alt: alt });
+      setIsOpenModal(true);
+      setModalImg(name);
+      setAlt(alt);
     }
   };
 
-  handleCloseModal = () => {
-    this.setState({ isOpenModal: false, modalImg: '' });
+  const handleCloseModal = () => {
+    setIsOpenModal(false);
+    setModalImg('');
   };
 
-  render() {
-    const {
-      imageList,
-      currentHits,
-      totalHits,
-      status,
-      isOpenModal,
-      modalImg,
-      alt,
-    } = this.state;
+  return (
+    <>
+      <Searchbar onSubmit={handleFormSubmit} />
 
-    return (
-      <>
-        <Searchbar onSubmit={this.handleFormSubmit} />
+      <ImageGallery>
+        <ImageGalleryItem
+          listImages={imageList}
+          onOpenModal={handleOpenModal}
+        />
+      </ImageGallery>
+      {status === FETCH_STATUS.fullfilled ? (
+        <Button
+          fetchNextPage={handleLoadMore}
+          disabled={currentHits === totalHits}
+        />
+      ) : (
+        <></>
+      )}
 
-        <ImageGallery>
-          <ImageGalleryItem
-            listImages={imageList}
-            onOpenModal={this.handleOpenModal}
-          />
-        </ImageGallery>
-        {status === FETCH_STATUS.fullfilled ? (
-          <Button
-            fetchNextPage={this.handleLoadMore}
-            disabled={currentHits === totalHits}
-          />
-        ) : (
-          <></>
-        )}
-
-        {isOpenModal && (
-          <Modal
-            bigImage={modalImg}
-            alt={alt}
-            onCloseModal={this.handleCloseModal}
-          />
-        )}
-      </>
-    );
-  }
-}
+      {isOpenModal && (
+        <Modal bigImage={modalImg} alt={alt} onCloseModal={handleCloseModal} />
+      )}
+    </>
+  );
+};
